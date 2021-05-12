@@ -1,0 +1,77 @@
+:- use_module(library(clpfd)).
+
+get_cell(S, [I,J], Val) :-
+    nth0(I, S, Row),
+    nth0(J, Row, Val).
+
+cell_values(Cells, S, Values) :- 
+    maplist(get_cell(S), Cells, Values).
+
+adds_to(X,Y,Z):-
+    Z #= X + Y.
+
+subs_to(X,Y,Z):-
+    Z #= X - Y.
+
+mults_to(X,Y,Z):-
+    Z #= X * Y.
+
+divides_to(X,Y,Z):-
+	Z #= X // Y.
+
+% will be true iff the sum of the entries in the Cells sum to Value.
+check_constraint(S, cage(add, Value, Cells)) :-
+    cell_values(Cells, S, Res),
+    foldl(adds_to, Res, 0, SumValue),
+    (Value #= SumValue).
+
+% will be true iff the sum of the entries in the Cells multiply to Value
+check_constraint(S, cage(mult, Value, Cells)) :-
+    cell_values(Cells, S, Res),
+    foldl(mults_to, Res, 1, MultValue),
+    (Value #= MultValue).
+
+% will be true iff the quotient of the two entries in Cells is equal to Value. Use // for division, not /.
+check_constraint(S, cage(div, Value, Cells)) :-
+    cell_values(Cells, S, Res),
+    nth0(0, Res, Elem1),
+    nth0(1, Res, Elem2),
+    divides_to(Elem1, Elem2, Quo1),
+    divides_to(Elem2, Elem1, Quo2),
+    (Value #= Quo1; Value #= Quo2).
+
+% will be true iff the the difference of the two entries in Cells is equal to Value.
+check_constraint(S, cage(sub, Value, Cells)) :-
+    cell_values(Cells, S, Res),
+    nth0(0, Res, Elem1),
+    nth0(1, Res, Elem2),
+    subs_to(Elem1, Elem2, Diff1),
+    subs_to(Elem2, Elem1, Diff2),
+    (Value #= Diff1; Value #= Diff2).
+
+% will be true iff the exact value of the single entry in Cells is equal to Value.
+check_constraint(S, cage(id, Value, Cells)) :-
+    %get_cell(S, Cells, Value).
+    cell_values(Cells, S, Res),
+    nth0(0, Res, IdValue),
+    (Value #= IdValue).
+
+check_cages(S, Cages) :-
+    maplist(check_constraint(S), Cages).
+
+solve(S, Cages) :-
+    % S must have 6 rows
+    length(S, 6),
+    % each row in S must be length 6
+    transpose(S, Cols), % takes in the matrix and makes a list out of columns
+    length(Cols, 6),
+    % each row in S must only contain values from 1 to 6
+    append(S, Values), % cages don't have any actual values we're using
+    Values ins 1..6, % checks if values are between 1 and 6
+    % the entries in S must satisfy the cages of the puzzles
+    check_cages(S, Cages),
+    % each row in S must contain all distinct values (no dupes)
+    maplist(all_different, S),
+    % each column in S must contain all distinct values
+    maplist(all_different, Cols),
+    maplist(label, S).
